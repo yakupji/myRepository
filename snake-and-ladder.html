@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake &amp; Ladder</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            color: white;
+            padding: 20px;
+        }
+
+        .game-wrap {
+            display: flex;
+            gap: 24px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        canvas {
+            border-radius: 14px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 0 2px rgba(255,255,255,0.08);
+            flex-shrink: 0;
+        }
+
+        .sidebar {
+            width: 260px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        h1 {
+            font-size: 26px;
+            text-align: center;
+            background: linear-gradient(90deg, #f7971e, #ffd200);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 1px;
+        }
+
+        /* ── Player cards ── */
+        .pcard {
+            background: rgba(255,255,255,0.07);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 14px 16px;
+            transition: border-color 0.3s, background 0.3s, box-shadow 0.3s;
+        }
+        .pcard.active {
+            border-color: #ffd200;
+            background: rgba(255,210,0,0.1);
+            box-shadow: 0 0 18px rgba(255,210,0,0.25);
+        }
+        .pcard-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .ptoken {
+            width: 26px; height: 26px;
+            border-radius: 50%;
+            border: 2px solid white;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: bold;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        .pname { font-weight: bold; font-size: 15px; }
+        .psquare { font-size: 22px; font-weight: bold; color: #ffd200; }
+        .pstatus { font-size: 12px; opacity: 0.65; margin-top: 3px; }
+
+        /* ── Dice ── */
+        .dice-area { text-align: center; }
+        .dice {
+            width: 74px; height: 74px;
+            background: white;
+            border-radius: 16px;
+            margin: 0 auto 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 46px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.6);
+            user-select: none;
+            transition: transform 0.1s;
+        }
+        .dice.rolling { animation: diceRoll 0.5s ease-in-out; }
+        @keyframes diceRoll {
+            0%   { transform: rotate(0deg)   scale(1); }
+            25%  { transform: rotate(-22deg) scale(1.18); }
+            50%  { transform: rotate(22deg)  scale(1.18); }
+            75%  { transform: rotate(-12deg) scale(1.09); }
+            100% { transform: rotate(0deg)   scale(1); }
+        }
+
+        /* ── Buttons ── */
+        .btn {
+            width: 100%;
+            padding: 11px;
+            border: none;
+            border-radius: 30px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+        }
+        .btn-roll {
+            background: linear-gradient(135deg, #f7971e, #ffd200);
+            color: #1a1a2e;
+            box-shadow: 0 4px 14px rgba(247,151,30,0.4);
+        }
+        .btn-roll:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(247,151,30,0.55); }
+        .btn-roll:disabled { opacity: 0.4; cursor: default; }
+        .btn-new {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            display: none;
+            box-shadow: 0 4px 14px rgba(102,126,234,0.4);
+        }
+        .btn-new:hover { transform: translateY(-2px); }
+
+        /* ── Message bar ── */
+        .msg {
+            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+            padding: 9px 12px;
+            background: rgba(255,255,255,0.07);
+            border-radius: 8px;
+            line-height: 1.35;
+        }
+
+        /* ── Game log ── */
+        .log {
+            background: rgba(0,0,0,0.35);
+            border-radius: 10px;
+            padding: 10px;
+            height: 185px;
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.8;
+        }
+        .log::-webkit-scrollbar { width: 4px; }
+        .log::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+        .le { border-bottom: 1px solid rgba(255,255,255,0.04); padding: 1px 0; }
+        .le.snake  { color: #ff6b6b; }
+        .le.ladder { color: #51cf66; }
+        .le.win    { color: #ffd200; font-weight: bold; font-size: 13px; }
+
+        /* ── Legend ── */
+        .legend { font-size: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; padding: 10px 12px; }
+        .legend-title { font-weight: bold; margin-bottom: 6px; opacity: 0.8; }
+        .li { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .li-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+    </style>
+</head>
+<body>
+<div class="game-wrap">
+    <canvas id="c"></canvas>
+
+    <div class="sidebar">
+        <h1>🐍 Snake &amp; Ladder</h1>
+
+        <div class="pcard active" id="c1">
+            <div class="pcard-head">
+                <div class="ptoken" style="background:#ff6b35">1</div>
+                <div class="pname">Player 1</div>
+            </div>
+            <div class="psquare">Square: <span id="s1">—</span></div>
+            <div class="pstatus" id="st1">Your turn!</div>
+        </div>
+
+        <div class="pcard" id="c2">
+            <div class="pcard-head">
+                <div class="ptoken" style="background:#1e90ff">2</div>
+                <div class="pname">Player 2</div>
+            </div>
+            <div class="psquare">Square: <span id="s2">—</span></div>
+            <div class="pstatus" id="st2">Waiting…</div>
+        </div>
+
+        <div class="dice-area">
+            <div class="dice" id="dice">🎲</div>
+            <button class="btn btn-roll" id="rollBtn" onclick="rollDice()">Roll Dice</button>
+        </div>
+
+        <button class="btn btn-new" id="newBtn" onclick="restart()">🔄 New Game</button>
+
+        <div class="msg" id="msg">Player 1's turn — Roll the dice!</div>
+
+        <div class="log" id="log">
+            <div class="le">🎮 Game started! Good luck!</div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-title">Legend</div>
+            <div class="li"><div class="li-dot" style="background:#ff4757"></div> Snake head (slide down)</div>
+            <div class="li"><div class="li-dot" style="background:#2ed573"></div> Ladder (climb up)</div>
+            <div class="li"><div class="li-dot" style="background:#ff6b35"></div> Player 1</div>
+            <div class="li"><div class="li-dot" style="background:#1e90ff"></div> Player 2</div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ─── Board setup ─────────────────────────────────────────────────────────────
+const N  = 10;   // 10×10 board
+const CS = 58;   // cell size in px
+
+const canvas = document.getElementById('c');
+canvas.width  = N * CS;
+canvas.height = N * CS;
+const ctx = canvas.getContext('2d');
+
+// Snakes  (head → tail)  — head is the high number
+const SNAKES = {
+    99: 7,
+    89: 68,
+    76: 37,
+    54: 34,
+    43: 18,
+    40:  3,
+    27:  5
+};
+
+// Ladders (bottom → top) — bottom is the low number
+const LADDERS = {
+     4: 56,
+    12: 50,
+    14: 55,
+    22: 58,
+    41: 79,
+    63: 81,
+    71: 91
+};
+
+const FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let players = [
+    { pos: 0, color: '#ff6b35', label: 'Player 1' },
+    { pos: 0, color: '#1e90ff', label: 'Player 2' }
+];
+let turn = 0, gameOver = false, busy = false;
+
+// ─── Coordinate helpers ───────────────────────────────────────────────────────
+// Returns { row (0=bottom), col (0=left) } for a square 1-100
+function sqRC(sq) {
+    const i = sq - 1;
+    const r = Math.floor(i / N);
+    const c = r % 2 === 0 ? i % N : N - 1 - (i % N);
+    return { r, c };
+}
+
+// Returns canvas center {x, y} for a square 1-100
+function sqXY(sq) {
+    const { r, c } = sqRC(sq);
+    return { x: c * CS + CS / 2, y: (N - 1 - r) * CS + CS / 2 };
+}
+
+// ─── Board drawing ────────────────────────────────────────────────────────────
+function drawBoard() {
+    ctx.save();
+    // Background
+    const bg = ctx.createLinearGradient(0, 0, N * CS, N * CS);
+    bg.addColorStop(0, '#1e1e30');
+    bg.addColorStop(1, '#12122a');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, N * CS, N * CS);
+
+    for (let r = 0; r < N; r++) {
+        for (let c = 0; c < N; c++) {
+            const x  = c * CS;
+            const y  = (N - 1 - r) * CS;
+            const sq = r % 2 === 0 ? r * N + c + 1 : (r + 1) * N - c;
+
+            // Cell fill — alternating shades
+            ctx.fillStyle = (r + c) % 2 === 0
+                ? 'rgba(255,255,255,0.07)'
+                : 'rgba(0,0,0,0.25)';
+            ctx.fillRect(x, y, CS, CS);
+
+            // Tint snake heads red, ladder bottoms green
+            if (SNAKES[sq]  !== undefined) {
+                ctx.fillStyle = 'rgba(255,71,87,0.18)';
+                ctx.fillRect(x, y, CS, CS);
+            } else if (LADDERS[sq] !== undefined) {
+                ctx.fillStyle = 'rgba(46,213,115,0.16)';
+                ctx.fillRect(x, y, CS, CS);
+            }
+
+            // Grid line
+            ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+            ctx.lineWidth   = 0.5;
+            ctx.strokeRect(x, y, CS, CS);
+
+            // Square number
+            ctx.fillStyle    = 'rgba(255,255,255,0.4)';
+            ctx.font         = 'bold 10px Arial';
+            ctx.textAlign    = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(sq, x + 3, y + 3);
+        }
+    }
+    ctx.restore();
+}
+
+// ─── Snake drawing ────────────────────────────────────────────────────────────
+function drawSnake(head, tail) {
+    const a = sqXY(head), b = sqXY(tail);
+    ctx.save();
+
+    // Bezier control points (add a lateral bulge for a snake-like curve)
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const nx =  dy * 0.35, ny = -dx * 0.35; // perpendicular
+    const cp1x = a.x + dx * 0.25 + nx,  cp1y = a.y + dy * 0.25 + ny;
+    const cp2x = b.x - dx * 0.25 - nx,  cp2y = b.y - dy * 0.25 - ny;
+
+    function path() {
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, b.x, b.y);
+    }
+
+    // Glow
+    ctx.shadowColor = 'rgba(255,50,50,0.55)';
+    ctx.shadowBlur  = 10;
+
+    // Dark outline
+    path();
+    ctx.strokeStyle = 'rgba(140,0,0,0.75)';
+    ctx.lineWidth   = 11;
+    ctx.lineCap     = 'round';
+    ctx.stroke();
+
+    // Coloured body
+    const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+    grad.addColorStop(0,   '#ff4757');
+    grad.addColorStop(0.5, '#ff6b81');
+    grad.addColorStop(1,   '#c0392b');
+    path();
+    ctx.strokeStyle = grad;
+    ctx.lineWidth   = 7;
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+
+    // ── Head circle ──
+    ctx.fillStyle   = '#ff4757';
+    ctx.strokeStyle = '#c0392b';
+    ctx.lineWidth   = 2;
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Eyes
+    [[-3.5, -3.5], [3.5, -3.5]].forEach(([ox, oy]) => {
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        ctx.arc(a.x + ox, a.y + oy, 2.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#111';
+        ctx.beginPath();
+        ctx.arc(a.x + ox, a.y + oy, 1.3, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    // Forked tongue (pointing downward from head)
+    ctx.strokeStyle = '#ff6b6b';
+    ctx.lineWidth   = 1.5;
+    ctx.lineCap     = 'round';
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y + 10);
+    ctx.lineTo(a.x, a.y + 16);
+    ctx.moveTo(a.x, a.y + 16);
+    ctx.lineTo(a.x - 3.5, a.y + 20);
+    ctx.moveTo(a.x, a.y + 16);
+    ctx.lineTo(a.x + 3.5, a.y + 20);
+    ctx.stroke();
+
+    // ── Tail dot ──
+    ctx.fillStyle = '#c0392b';
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+}
+
+// ─── Ladder drawing ───────────────────────────────────────────────────────────
+function drawLadder(bot, top) {
+    const a = sqXY(bot), b = sqXY(top);
+    ctx.save();
+
+    const dx  = b.x - a.x, dy = b.y - a.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const ux  = dx / len, uy = dy / len;
+    const px  = -uy * 7,  py =  ux * 7;  // perpendicular offset for rail gap
+
+    ctx.lineCap     = 'round';
+    ctx.shadowColor = 'rgba(46,213,115,0.45)';
+    ctx.shadowBlur  = 7;
+
+    // Rails
+    ctx.strokeStyle = '#2ed573';
+    ctx.lineWidth   = 3.5;
+
+    [[1, 1], [-1, -1]].forEach(([sx, sy]) => {
+        ctx.beginPath();
+        ctx.moveTo(a.x + px * sx, a.y + py * sy);
+        ctx.lineTo(b.x + px * sx, b.y + py * sy);
+        ctx.stroke();
+    });
+
+    ctx.shadowBlur = 0;
+
+    // Rungs
+    const numRungs = Math.max(2, Math.round(len / 22));
+    ctx.strokeStyle = '#7bed9f';
+    ctx.lineWidth   = 2.5;
+
+    for (let i = 1; i <= numRungs; i++) {
+        const t  = i / (numRungs + 1);
+        const rx = a.x + dx * t,  ry = a.y + dy * t;
+        ctx.beginPath();
+        ctx.moveTo(rx + px * 1.4, ry + py * 1.4);
+        ctx.lineTo(rx - px * 1.4, ry - py * 1.4);
+        ctx.stroke();
+    }
+
+    // End markers
+    [a, b].forEach(pt => {
+        ctx.fillStyle = '#2ed573';
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    ctx.restore();
+}
+
+// ─── Player tokens ────────────────────────────────────────────────────────────
+function drawPlayers() {
+    players.forEach((p, i) => {
+        if (p.pos <= 0) return;
+        const { x, y } = sqXY(p.pos);
+        // Stagger tokens so they don't overlap exactly
+        const ox = i === 0 ? -10 : 10;
+        const oy = i === 0 ?   8 : -8;
+        const cx = x + ox, cy = y + oy;
+
+        ctx.save();
+        // Drop shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.beginPath();
+        ctx.arc(cx + 2, cy + 2, 11, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Glow ring
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur  = 14;
+
+        // Token fill
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 11, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+
+        // White border
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth   = 2.5;
+        ctx.stroke();
+
+        // Number label
+        ctx.fillStyle    = 'white';
+        ctx.font         = 'bold 10px Arial';
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(i + 1, cx, cy);
+        ctx.restore();
+    });
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBoard();
+    // Ladders behind snakes
+    Object.entries(LADDERS).forEach(([b, t]) => drawLadder(+b, t));
+    Object.entries(SNAKES).forEach(([h, t])  => drawSnake(+h, t));
+    drawPlayers();
+}
+
+// ─── UI helpers ───────────────────────────────────────────────────────────────
+function addLog(msg, cls = '') {
+    const log = document.getElementById('log');
+    const div = document.createElement('div');
+    div.className   = 'le ' + cls;
+    div.textContent = msg;
+    log.prepend(div);
+    // Keep last 30 entries
+    while (log.children.length > 30) log.removeChild(log.lastChild);
+}
+
+function setStatus(i, text) {
+    document.getElementById('st' + (i + 1)).textContent = text;
+}
+
+function updateSquareDisplay() {
+    players.forEach((p, i) => {
+        document.getElementById('s' + (i + 1)).textContent = p.pos > 0 ? p.pos : '—';
+    });
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ─── Roll logic ───────────────────────────────────────────────────────────────
+async function rollDice() {
+    if (busy || gameOver) return;
+    busy = true;
+
+    const rollBtn = document.getElementById('rollBtn');
+    const diceEl  = document.getElementById('dice');
+    const msgEl   = document.getElementById('msg');
+    rollBtn.disabled = true;
+
+    // Dice animation
+    diceEl.classList.add('rolling');
+    for (let i = 0; i < 14; i++) {
+        diceEl.textContent = FACES[Math.floor(Math.random() * 6)];
+        await sleep(40);
+    }
+    const roll = Math.floor(Math.random() * 6) + 1;
+    diceEl.textContent = FACES[roll - 1];
+    diceEl.classList.remove('rolling');
+
+    const p      = players[turn];
+    const newPos = Math.min(p.pos + roll, 100);
+    addLog(`🎲 ${p.label} rolled a ${roll}`);
+
+    // Move to rolled position
+    p.pos = newPos;
+    updateSquareDisplay();
+    render();
+    await sleep(400);
+
+    // Check for snake
+    if (SNAKES[p.pos] !== undefined) {
+        const to = SNAKES[p.pos];
+        addLog(`🐍 ${p.label} got bitten by a snake! ${p.pos} → ${to}`, 'snake');
+        setStatus(turn, '🐍 Snake! Sliding down…');
+        msgEl.textContent = `🐍 Oh no! ${p.label} hit a snake!`;
+        await sleep(700);
+        p.pos = to;
+        updateSquareDisplay();
+        render();
+        await sleep(350);
+    }
+    // Check for ladder
+    else if (LADDERS[p.pos] !== undefined) {
+        const to = LADDERS[p.pos];
+        addLog(`🪜 ${p.label} climbed a ladder! ${p.pos} → ${to}`, 'ladder');
+        setStatus(turn, '🪜 Ladder! Climbing up!');
+        msgEl.textContent = `🪜 Lucky! ${p.label} found a ladder!`;
+        await sleep(700);
+        p.pos = to;
+        updateSquareDisplay();
+        render();
+        await sleep(350);
+    }
+
+    // ── Win condition ──
+    if (p.pos === 100) {
+        gameOver = true;
+        addLog(`🏆 ${p.label} reached square 100 and WINS! 🎉`, 'win');
+        msgEl.textContent = `🎉 ${p.label} Wins! Congratulations!`;
+        setStatus(turn, '🏆 WINNER!');
+        rollBtn.style.display = 'none';
+        document.getElementById('newBtn').style.display = 'block';
+        busy = false;
+        return;
+    }
+
+    // ── Switch turn ──
+    turn = 1 - turn;
+    msgEl.textContent = `${players[turn].label}'s turn — Roll the dice!`;
+    setStatus(turn,     'Your turn!');
+    setStatus(1 - turn, 'Waiting…');
+    document.getElementById('c1').classList.toggle('active', turn === 0);
+    document.getElementById('c2').classList.toggle('active', turn === 1);
+
+    rollBtn.disabled = false;
+    busy = false;
+}
+
+// ─── Restart ──────────────────────────────────────────────────────────────────
+function restart() {
+    players  = [
+        { pos: 0, color: '#ff6b35', label: 'Player 1' },
+        { pos: 0, color: '#1e90ff', label: 'Player 2' }
+    ];
+    turn = 0; gameOver = false; busy = false;
+
+    updateSquareDisplay();
+    setStatus(0, 'Your turn!');
+    setStatus(1, 'Waiting…');
+    document.getElementById('c1').classList.add('active');
+    document.getElementById('c2').classList.remove('active');
+    document.getElementById('msg').textContent = "Player 1's turn — Roll the dice!";
+    document.getElementById('rollBtn').disabled    = false;
+    document.getElementById('rollBtn').style.display = 'block';
+    document.getElementById('newBtn').style.display  = 'none';
+    document.getElementById('dice').textContent = '🎲';
+    document.getElementById('log').innerHTML =
+        '<div class="le">🎮 New game — Good luck!</div>';
+
+    render();
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
