@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pending Invites – Yakupji (Prototype)</title>
+  <style>
+    /* ─── Reset & Base ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+           background: #e8ecf1; min-height: 100vh; color: #1a1a2e; }
+
+    /* ─── Top Nav ──────────────────────────────────────────────────── */
+    .topnav {
+      background: #1a1a2e;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px; height: 54px; position: sticky; top: 0; z-index: 100;
+    }
+    .brand { color: #fff; font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .brand .count { font-size: 12px; font-weight: 400; color: #a0aec0; background: rgba(255,255,255,.1);
+                    padding: 2px 8px; border-radius: 999px; }
+    .nav-links { display: flex; gap: 4px; }
+    .nav-links a {
+      color: #a0aec0; text-decoration: none; font-size: 13.5px; padding: 6px 14px;
+      border-radius: 6px; transition: all .15s;
+    }
+    .nav-links a:hover { color: #fff; background: rgba(255,255,255,.08); }
+    .nav-links a.active { color: #fff; }
+    .nav-dropdown { position: relative; }
+    .nav-dropdown > a { display: flex; align-items: center; gap: 4px; }
+    .nav-dropdown > a::after { content: '▾'; font-size: 11px; }
+    .nav-dropdown .dropdown-menu {
+      display: none; position: absolute; top: calc(100% + 6px); left: 0;
+      background: #fff; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.15);
+      min-width: 140px; overflow: hidden; z-index: 200;
+    }
+    .nav-dropdown:hover .dropdown-menu,
+    .nav-dropdown.open .dropdown-menu { display: block; }
+    .dropdown-menu a {
+      display: block; padding: 10px 16px; color: #374151; font-size: 13.5px;
+      text-decoration: none; transition: background .12s;
+    }
+    .dropdown-menu a:hover { background: #f3f4f6; }
+    .dropdown-menu a.active { color: #7c3aed; font-weight: 600; }
+    .nav-icons { display: flex; align-items: center; gap: 12px; }
+    .nav-icons .icon-btn { background: none; border: none; cursor: pointer;
+                           color: #a0aec0; font-size: 18px; padding: 4px; }
+    .avatar { width: 34px; height: 34px; border-radius: 50%; background: #7c3aed;
+              display: flex; align-items: center; justify-content: center;
+              color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+    /* ─── Page Wrapper ─────────────────────────────────────────────── */
+    .page { max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
+
+    /* ─── Page Header ──────────────────────────────────────────────── */
+    .page-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px; flex-wrap: wrap; gap: 12px;
+    }
+    .page-title {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 17px; font-weight: 700; color: #1a1a2e;
+    }
+    .page-title .badge {
+      background: #7c3aed; color: #fff; font-size: 11px;
+      font-weight: 700; padding: 2px 8px; border-radius: 999px;
+    }
+    .info-icon { cursor: pointer; color: #9ca3af; font-size: 16px; }
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+
+    /* ─── Note Banner ──────────────────────────────────────────────── */
+    .note-banner {
+      background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px;
+      padding: 12px 16px; margin-bottom: 20px;
+      display: flex; align-items: flex-start; gap: 10px; font-size: 13.5px; color: #92400e;
+    }
+    .note-banner .icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .note-banner strong { color: #78350f; }
+
+    /* ─── Reinvite Limit Banner ────────────────────────────────────── */
+    .limit-banner {
+      background: #fff7ed; border: 1px solid #fdba74; border-radius: 8px;
+      padding: 12px 16px; margin-bottom: 20px;
+      display: flex; align-items: flex-start; gap: 10px; font-size: 13.5px; color: #9a3412;
+    }
+    .limit-banner .icon { font-size: 16px; flex-shrink: 0; }
+
+    /* ─── Toolbar ──────────────────────────────────────────────────── */
+    .toolbar {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .search-wrap {
+      flex: 1; min-width: 220px; max-width: 380px;
+      position: relative; display: flex; align-items: center;
+    }
+    .search-wrap .search-icon {
+      position: absolute; left: 12px; color: #9ca3af; font-size: 15px; pointer-events: none;
+    }
+    .search-input {
+      width: 100%; padding: 9px 12px 9px 36px; border: 1px solid #d1d5db;
+      border-radius: 8px; font-size: 13.5px; outline: none; background: #fff;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .search-input:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,.12); }
+    .filter-group { display: flex; gap: 8px; }
+    .filter-chip {
+      padding: 7px 14px; border: 1px solid #d1d5db; border-radius: 999px;
+      background: #fff; font-size: 13px; cursor: pointer; color: #374151; transition: all .15s;
+    }
+    .filter-chip:hover, .filter-chip.active {
+      border-color: #7c3aed; color: #7c3aed; background: #f5f3ff;
+    }
+    .toolbar-right { display: flex; gap: 8px; margin-left: auto; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 8px; font-size: 13px;
+      font-weight: 500; cursor: pointer; transition: all .15s; border: none;
+    }
+    .btn-outline {
+      background: #fff; border: 1px solid #d1d5db; color: #374151;
+    }
+    .btn-outline:hover { border-color: #7c3aed; color: #7c3aed; background: #f5f3ff; }
+    .btn-primary { background: #7c3aed; color: #fff; }
+    .btn-primary:hover { background: #6d28d9; }
+    .btn-danger { background: #fff; border: 1px solid #fca5a5; color: #dc2626; }
+    .btn-danger:hover { background: #fef2f2; }
+
+    /* ─── Stats Row ────────────────────────────────────────────────── */
+    .stats-row {
+      display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .stat-card {
+      background: #fff; border-radius: 10px; padding: 14px 20px;
+      border: 1px solid #e5e7eb; flex: 1; min-width: 140px;
+    }
+    .stat-card .label { font-size: 11px; color: #6b7280; text-transform: uppercase;
+                         letter-spacing: .05em; margin-bottom: 4px; }
+    .stat-card .value { font-size: 22px; font-weight: 700; color: #1a1a2e; }
+    .stat-card .value span { font-size: 12px; font-weight: 400; color: #6b7280; margin-left: 4px; }
+    .stat-card.warn .value { color: #d97706; }
+    .stat-card.danger .value { color: #dc2626; }
+
+    /* ─── Table ────────────────────────────────────────────────────── */
+    .table-card {
+      background: #fff; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden;
+    }
+    .table-header-row {
+      display: grid;
+      grid-template-columns: 40px 1fr 180px 180px 140px 130px;
+      padding: 10px 20px; background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb; font-size: 11.5px;
+      font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: .05em;
+      align-items: center;
+    }
+    .invite-row {
+      display: grid;
+      grid-template-columns: 40px 1fr 180px 180px 140px 130px;
+      padding: 14px 20px; border-bottom: 1px solid #f3f4f6;
+      align-items: center; transition: background .12s;
+    }
+    .invite-row:last-child { border-bottom: none; }
+    .invite-row:hover { background: #fafafa; }
+    .invite-row.limit-reached { background: #fff8f8; }
+
+    /* Checkbox */
+    .cb { width: 16px; height: 16px; cursor: pointer; accent-color: #7c3aed; }
+
+    /* Avatar cell */
+    .user-cell { display: flex; align-items: center; gap: 12px; }
+    .user-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .user-info .email { font-size: 14px; font-weight: 500; color: #1a1a2e; }
+    .user-info .sub { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    .user-type-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+      margin-left: 8px; vertical-align: middle; letter-spacing: .03em;
+    }
+    .badge-external {
+      background: #fef3c7; color: #92400e; border: 1px solid #fcd34d;
+    }
+    .badge-internal {
+      background: #ede9fe; color: #5b21b6; border: 1px solid #c4b5fd;
+    }
+
+    /* Date / invite count */
+    .date-cell { font-size: 13px; color: #374151; }
+    .date-cell .ago { font-size: 11.5px; color: #9ca3af; margin-top: 2px; }
+
+    /* Reinvite counter */
+    .reinvite-counter { display: flex; flex-direction: column; gap: 4px; }
+    .reinvite-counter .dots { display: flex; gap: 5px; }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+    }
+    .dot.used { background: #f97316; }
+    .dot.available { background: #d1d5db; }
+    .dot.limit { background: #dc2626; }
+    .reinvite-label { font-size: 11px; color: #6b7280; }
+    .reinvite-label.warn { color: #d97706; }
+    .reinvite-label.danger { color: #dc2626; font-weight: 600; }
+
+    /* Expiry */
+    .expiry-cell { font-size: 13px; color: #374151; }
+    .expiry-cell .bar-wrap {
+      height: 4px; background: #e5e7eb; border-radius: 999px; margin-top: 5px; width: 100px;
+    }
+    .expiry-cell .bar { height: 100%; border-radius: 999px; }
+    .bar-green { background: #10b981; }
+    .bar-yellow { background: #f59e0b; }
+    .bar-red { background: #ef4444; }
+
+    /* Actions */
+    .actions-cell { display: flex; align-items: center; gap: 8px; }
+    .action-btn {
+      font-size: 12.5px; font-weight: 600; padding: 5px 12px;
+      border-radius: 6px; cursor: pointer; border: 1px solid transparent;
+      transition: all .15s; white-space: nowrap;
+    }
+    .action-reinvite {
+      color: #059669; border-color: #6ee7b7; background: #f0fdf4;
+    }
+    .action-reinvite:hover { background: #dcfce7; border-color: #34d399; }
+    .action-reinvite:disabled {
+      color: #9ca3af; border-color: #e5e7eb; background: #f9fafb;
+      cursor: not-allowed; opacity: .7;
+    }
+    .action-delete {
+      color: #dc2626; border-color: #fca5a5; background: #fff5f5;
+    }
+    .action-delete:hover { background: #fee2e2; border-color: #f87171; }
+
+    /* Limit reached row notice */
+    .limit-tag {
+      font-size: 11px; font-weight: 600; color: #dc2626;
+      background: #fee2e2; padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+    }
+
+    /* ─── Empty state ──────────────────────────────────────────────── */
+    .empty-state {
+      text-align: center; padding: 60px 20px; color: #6b7280;
+    }
+    .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; }
+
+    /* ─── Bulk Action Bar ──────────────────────────────────────────── */
+    .bulk-bar {
+      display: none; align-items: center; gap: 12px;
+      background: #1a1a2e; color: #fff; padding: 10px 20px;
+      border-radius: 8px 8px 0 0; font-size: 13.5px;
+    }
+    .bulk-bar.visible { display: flex; }
+    .bulk-bar .selected-count { font-weight: 600; margin-right: 4px; }
+
+    /* ─── Tooltip ──────────────────────────────────────────────────── */
+    [data-tooltip] { position: relative; cursor: help; }
+    [data-tooltip]:hover::after {
+      content: attr(data-tooltip);
+      position: absolute; bottom: 130%; left: 50%; transform: translateX(-50%);
+      background: #1a1a2e; color: #fff; font-size: 12px; padding: 6px 10px;
+      border-radius: 6px; white-space: nowrap; z-index: 999; pointer-events: none;
+    }
+    [data-tooltip]:hover::before {
+      content: '';
+      position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%);
+      border: 5px solid transparent; border-top-color: #1a1a2e; z-index: 999;
+    }
+
+    /* ─── Export Toast ─────────────────────────────────────────────── */
+    .toast {
+      position: fixed; bottom: 28px; right: 28px; z-index: 9999;
+      background: #1a1a2e; color: #fff; padding: 14px 20px;
+      border-radius: 10px; font-size: 14px; display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.2); transform: translateY(80px);
+      opacity: 0; transition: all .3s cubic-bezier(.34,1.56,.64,1);
+      pointer-events: none;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; pointer-events: auto; }
+    .toast .icon { font-size: 18px; }
+
+    /* ─── Modal ────────────────────────────────────────────────────── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      z-index: 500; align-items: center; justify-content: center;
+    }
+    .modal-overlay.visible { display: flex; }
+    .modal {
+      background: #fff; border-radius: 14px; padding: 28px;
+      width: 100%; max-width: 460px; box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    }
+    .modal h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+    .modal p { font-size: 13.5px; color: #6b7280; margin-bottom: 20px; line-height: 1.6; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+    /* ─── Responsive ───────────────────────────────────────────────── */
+    @media (max-width: 760px) {
+      .table-header-row, .invite-row {
+        grid-template-columns: 40px 1fr 100px 90px;
+      }
+      .invite-row > *:nth-child(4),
+      .invite-row > *:nth-child(5),
+      .table-header-row > *:nth-child(4),
+      .table-header-row > *:nth-child(5) { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ╔══════════════════════════ TOP NAV ══════════════════════════╗ -->
+<nav class="topnav">
+  <div class="brand">Yakupji <span class="count">3 Members</span></div>
+  <div class="nav-links">
+    <a href="#">Members</a>
+    <a href="#">Guests (1)</a>
+    <a href="#">Disabled Members</a>
+    <div class="nav-dropdown open">
+      <a href="#" class="active">Pending Invites</a>
+      <div class="dropdown-menu">
+        <a href="#" class="active" onclick="switchTab('members',event)">Members</a>
+        <a href="#" onclick="switchTab('guests',event)">Guests</a>
+      </div>
+    </div>
+  </div>
+  <div class="nav-icons">
+    <button class="icon-btn" title="Settings">⚙</button>
+    <div class="avatar">MY</div>
+    <button class="icon-btn" title="Close">✕</button>
+  </div>
+</nav>
+
+<!-- ╔══════════════════════════ MAIN PAGE ═════════════════════════╗ -->
+<div class="page">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="page-title">
+      Pending Member Invites
+      <span class="badge" id="totalBadge">5</span>
+      <span class="info-icon" data-tooltip="Invites awaiting acceptance">ℹ</span>
+      <span class="info-icon" id="selectAllBtn" style="cursor:pointer; font-size:18px; color:#9ca3af;"
+            title="Select all" onclick="toggleSelectAll()">☐</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-outline" onclick="exportCSV()">
+        ⬇ Export CSV
+      </button>
+      <button class="btn btn-outline" onclick="exportJSON()">
+        ⬇ Export JSON
+      </button>
+      <button class="btn btn-primary" onclick="openInviteModal()">
+        + Invite Member
+      </button>
+    </div>
+  </div>
+
+  <!-- Note Banner: 90-day expiry -->
+  <div class="note-banner">
+    <span class="icon">⚠️</span>
+    <span>
+      <strong>Note:</strong> Pending invites can be re-sent within <strong>90 days</strong> from
+      the date they were last mailed. After <strong>90 days</strong>, the invites expire and are
+      permanently deleted. Each invite can be re-sent a maximum of <strong>3 times</strong>.
+    </span>
+  </div>
+
+  <!-- Reinvite Limit Info Banner -->
+  <div class="limit-banner" id="limitBanner" style="display:none;">
+    <span class="icon">🚫</span>
+    <span>
+      <strong>Re-invite limit reached</strong> for 1 or more users. These users have already been
+      invited 3 times. To add them, they must accept the existing invite or be added through an
+      admin override.
+    </span>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="label">Total Pending</div>
+      <div class="value" id="statTotal">5 <span>invites</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="label">External Users</div>
+      <div class="value" id="statExternal">3 <span>users</span></div>
+    </div>
+    <div class="stat-card warn">
+      <div class="label">Expiring Soon (&lt;7 days)</div>
+      <div class="value" id="statExpiring">1 <span>invite</span></div>
+    </div>
+    <div class="stat-card danger">
+      <div class="label">Re-invite Limit Reached</div>
+      <div class="value" id="statLimit">1 <span>user</span></div>
+    </div>
+  </div>
+
+  <!-- Bulk Action Bar -->
+  <div class="bulk-bar" id="bulkBar">
+    <span><span class="selected-count" id="selectedCount">0</span> selected</span>
+    <button class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.3);"
+            onclick="bulkReinvite()">↺ Reinvite Selected</button>
+    <button class="btn btn-danger" onclick="bulkDelete()">🗑 Delete Selected</button>
+    <button class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.3);margin-left:auto;"
+            onclick="clearSelection()">✕ Clear</button>
+  </div>
+
+  <!-- Toolbar: Search + Filter -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" id="searchInput" type="text"
+             placeholder="Search by email or name…" oninput="applyFilters()" />
+    </div>
+    <div class="filter-group">
+      <button class="filter-chip active" id="chip-all" onclick="setFilter('all',this)">All</button>
+      <button class="filter-chip" id="chip-external" onclick="setFilter('external',this)">External</button>
+      <button class="filter-chip" id="chip-internal" onclick="setFilter('internal',this)">Internal</button>
+      <button class="filter-chip" id="chip-limit" onclick="setFilter('limit',this)">⚠ Limit Reached</button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card">
+    <div class="table-header-row">
+      <div></div>
+      <div>USER</div>
+      <div>LAST INVITED</div>
+      <div>EXPIRES IN</div>
+      <div>RE-INVITES USED</div>
+      <div>ACTIONS</div>
+    </div>
+    <div id="inviteList"></div>
+  </div>
+</div>
+
+<!-- ╔══════════════════════════ MODALS ════════════════════════════╗ -->
+<!-- Reinvite Confirm Modal -->
+<div class="modal-overlay" id="reinviteModal">
+  <div class="modal">
+    <h3>Confirm Re-invite</h3>
+    <p id="reinviteModalText">Send another invite email to this user?</p>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('reinviteModal')">Cancel</button>
+      <button class="btn btn-primary" id="reinviteConfirmBtn" onclick="confirmReinvite()">Send Invite</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <h3>Delete Invite</h3>
+    <p id="deleteModalText">Are you sure you want to permanently remove this pending invite?</p>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('deleteModal')">Cancel</button>
+      <button class="btn btn-danger" id="deleteConfirmBtn" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Invite New Member Modal -->
+<div class="modal-overlay" id="inviteModal">
+  <div class="modal">
+    <h3>Invite Member</h3>
+    <p>Enter the email address of the person you'd like to invite.</p>
+    <input class="search-input" id="inviteEmail" placeholder="email@example.com"
+           style="margin-bottom:16px;" />
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('inviteModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addInvite()">Send Invite</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <span class="icon" id="toastIcon">✅</span>
+  <span id="toastMsg">Action completed</span>
+</div>
+
+<script>
+/* ─── Data ─────────────────────────────────────────────────────────── */
+const INTERNAL_DOMAINS = ['zohocorp.com', 'zoho.com'];
+
+let invites = [
+  {
+    id: 1, email: 'yakupjii@gmail.com', name: null,
+    lastInvited: new Date('2023-04-25T18:52:00'), reinviteCount: 1,
+    avatarColor: '#f97316'
+  },
+  {
+    id: 2, email: 'mohammed.yakupkani+2@zohocorp.com', name: 'M. Yakup',
+    lastInvited: new Date('2022-03-14T16:59:00'), reinviteCount: 2,
+    avatarColor: '#10b981'
+  },
+  {
+    id: 3, email: 'sarah.jones@gmail.com', name: 'Sarah J.',
+    lastInvited: new Date('2024-08-20T10:00:00'), reinviteCount: 3,
+    avatarColor: '#6366f1'
+  },
+  {
+    id: 4, email: 'john.doe@outsideco.com', name: 'John D.',
+    lastInvited: new Date('2024-08-28T09:00:00'), reinviteCount: 0,
+    avatarColor: '#ec4899'
+  },
+  {
+    id: 5, email: 'priya.mehta@zohocorp.com', name: 'Priya M.',
+    lastInvited: new Date('2024-07-01T12:00:00'), reinviteCount: 1,
+    avatarColor: '#0ea5e9'
+  }
+];
+
+const MAX_REINVITES = 3;
+const EXPIRE_DAYS = 90;
+let selectedIds = new Set();
+let activeFilter = 'all';
+let pendingActionId = null;
+
+/* ─── Helpers ──────────────────────────────────────────────────────── */
+function isExternal(email) {
+  const domain = email.split('@')[1] || '';
+  return !INTERNAL_DOMAINS.includes(domain.toLowerCase());
+}
+
+function daysUntilExpiry(lastInvited) {
+  const msPerDay = 86400000;
+  const elapsed = Math.floor((Date.now() - lastInvited) / msPerDay);
+  return Math.max(0, EXPIRE_DAYS - elapsed);
+}
+
+function formatDate(d) {
+  return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+       + ', ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+}
+
+function timeAgo(d) {
+  const diff = Date.now() - d;
+  const days = Math.floor(diff / 86400000);
+  if (days < 1) return 'Today';
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months/12)}y ago`;
+}
+
+function initials(email, name) {
+  if (name) return name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const local = email.split('@')[0];
+  const parts = local.split(/[.\-_+]/);
+  return parts.length > 1
+    ? (parts[0][0] + parts[1][0]).toUpperCase()
+    : local.slice(0,2).toUpperCase();
+}
+
+/* ─── Render ────────────────────────────────────────────────────────── */
+function applyFilters() {
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+
+  let filtered = invites.filter(inv => {
+    const matchesSearch = !q
+      || inv.email.toLowerCase().includes(q)
+      || (inv.name && inv.name.toLowerCase().includes(q));
+
+    const ext = isExternal(inv.email);
+    const limitReached = inv.reinviteCount >= MAX_REINVITES;
+
+    const matchesFilter =
+      activeFilter === 'all' ||
+      (activeFilter === 'external' && ext) ||
+      (activeFilter === 'internal' && !ext) ||
+      (activeFilter === 'limit' && limitReached);
+
+    return matchesSearch && matchesFilter;
+  });
+
+  renderList(filtered);
+  updateStats();
+}
+
+function renderList(list) {
+  const container = document.getElementById('inviteList');
+
+  if (list.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">📭</div>
+        <p>No pending invites match your search.</p>
+      </div>`;
+    return;
+  }
+
+  // Show limit banner if any user hit the limit
+  const anyLimit = invites.some(i => i.reinviteCount >= MAX_REINVITES);
+  document.getElementById('limitBanner').style.display = anyLimit ? 'flex' : 'none';
+
+  container.innerHTML = list.map(inv => {
+    const ext = isExternal(inv.email);
+    const days = daysUntilExpiry(inv.lastInvited);
+    const expired = days === 0;
+    const limitReached = inv.reinviteCount >= MAX_REINVITES;
+    const checked = selectedIds.has(inv.id);
+
+    // Expiry bar
+    const pct = Math.round((days / EXPIRE_DAYS) * 100);
+    const barClass = days > 30 ? 'bar-green' : days > 7 ? 'bar-yellow' : 'bar-red';
+    const expiryLabel = expired
+      ? `<span style="color:#dc2626;font-weight:600;">Expired</span>`
+      : `<span style="color:${days<=7?'#dc2626':days<=30?'#d97706':'#374151'}">${days}d left</span>`;
+
+    // Re-invite dots
+    const dotsHtml = Array.from({length: MAX_REINVITES}).map((_,i) => {
+      const cls = i < inv.reinviteCount
+        ? (limitReached && i === MAX_REINVITES-1 ? 'limit' : 'used')
+        : 'available';
+      return `<div class="dot ${cls}" data-tooltip="${i < inv.reinviteCount ? 'Used' : 'Available'}"></div>`;
+    }).join('');
+
+    const reinviteLabel = limitReached
+      ? `<span class="reinvite-label danger">Limit reached (${MAX_REINVITES}/${MAX_REINVITES})</span>`
+      : inv.reinviteCount === MAX_REINVITES - 1
+      ? `<span class="reinvite-label warn">Last attempt (${inv.reinviteCount}/${MAX_REINVITES})</span>`
+      : `<span class="reinvite-label">${inv.reinviteCount}/${MAX_REINVITES} used</span>`;
+
+    const reinviteBtn = limitReached
+      ? `<button class="action-btn action-reinvite" disabled
+            data-tooltip="Maximum re-invites (3) reached">↺ Reinvite</button>`
+      : expired
+      ? `<button class="action-btn action-reinvite" disabled
+            data-tooltip="Invite has expired">↺ Reinvite</button>`
+      : `<button class="action-btn action-reinvite"
+            onclick="openReinviteModal(${inv.id})">↺ Reinvite</button>`;
+
+    return `
+    <div class="invite-row ${limitReached ? 'limit-reached' : ''}" id="row-${inv.id}">
+      <div>
+        <input type="checkbox" class="cb" ${checked ? 'checked' : ''}
+               onchange="toggleSelect(${inv.id}, this.checked)" />
+      </div>
+
+      <div class="user-cell">
+        <div class="user-avatar" style="background:${inv.avatarColor}">
+          ${initials(inv.email, inv.name)}
+        </div>
+        <div class="user-info">
+          <div class="email">
+            ${inv.email}
+            <span class="user-type-badge ${ext ? 'badge-external' : 'badge-internal'}">
+              ${ext ? '🌐 External' : '🏢 Internal'}
+            </span>
+            ${limitReached ? '<span class="limit-tag">🚫 Invite limit</span>' : ''}
+          </div>
+          ${inv.name ? `<div class="sub">${inv.name}</div>` : ''}
+        </div>
+      </div>
+
+      <div class="date-cell">
+        ${formatDate(inv.lastInvited)}
+        <div class="ago">${timeAgo(inv.lastInvited)}</div>
+      </div>
+
+      <div class="expiry-cell">
+        ${expiryLabel}
+        <div class="bar-wrap">
+          <div class="bar ${barClass}" style="width:${pct}%"></div>
+        </div>
+      </div>
+
+      <div class="reinvite-counter">
+        <div class="dots">${dotsHtml}</div>
+        ${reinviteLabel}
+      </div>
+
+      <div class="actions-cell">
+        ${reinviteBtn}
+        <button class="action-btn action-delete"
+                onclick="openDeleteModal(${inv.id})">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateStats() {
+  const ext = invites.filter(i => isExternal(i.email)).length;
+  const expiring = invites.filter(i => daysUntilExpiry(i.lastInvited) <= 7 && daysUntilExpiry(i.lastInvited) > 0).length;
+  const limit = invites.filter(i => i.reinviteCount >= MAX_REINVITES).length;
+  document.getElementById('statTotal').innerHTML   = `${invites.length} <span>invites</span>`;
+  document.getElementById('statExternal').innerHTML= `${ext} <span>users</span>`;
+  document.getElementById('statExpiring').innerHTML= `${expiring} <span>invite${expiring!==1?'s':''}`;
+  document.getElementById('statLimit').innerHTML   = `${limit} <span>user${limit!==1?'s':''}`;
+  document.getElementById('totalBadge').textContent = invites.length;
+}
+
+/* ─── Selection ────────────────────────────────────────────────────── */
+function toggleSelect(id, checked) {
+  checked ? selectedIds.add(id) : selectedIds.delete(id);
+  updateBulkBar();
+}
+function toggleSelectAll() {
+  if (selectedIds.size === invites.length) {
+    selectedIds.clear();
+  } else {
+    invites.forEach(i => selectedIds.add(i.id));
+  }
+  applyFilters();
+  updateBulkBar();
+}
+function clearSelection() { selectedIds.clear(); applyFilters(); updateBulkBar(); }
+function updateBulkBar() {
+  const bar = document.getElementById('bulkBar');
+  document.getElementById('selectedCount').textContent = selectedIds.size;
+  bar.classList.toggle('visible', selectedIds.size > 0);
+}
+
+/* ─── Filters ──────────────────────────────────────────────────────── */
+function setFilter(f, el) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  applyFilters();
+}
+
+/* ─── Reinvite Modal ────────────────────────────────────────────────── */
+function openReinviteModal(id) {
+  pendingActionId = id;
+  const inv = invites.find(i => i.id === id);
+  const remaining = MAX_REINVITES - inv.reinviteCount;
+  document.getElementById('reinviteModalText').innerHTML =
+    `Send another invite email to <strong>${inv.email}</strong>?<br>
+     <span style="color:#d97706;font-size:12.5px;margin-top:8px;display:block;">
+       ⚠ ${remaining} re-invite attempt${remaining!==1?'s':''} remaining after this.
+       ${remaining === 1 ? '<br><strong>This will be the final allowed re-invite.</strong>' : ''}
+     </span>`;
+  document.getElementById('reinviteModal').classList.add('visible');
+}
+function confirmReinvite() {
+  const inv = invites.find(i => i.id === pendingActionId);
+  if (!inv) return;
+  inv.reinviteCount++;
+  inv.lastInvited = new Date();
+  closeModal('reinviteModal');
+  applyFilters();
+  showToast('✅', `Re-invite sent to ${inv.email}`);
+}
+
+/* ─── Delete Modal ──────────────────────────────────────────────────── */
+function openDeleteModal(id) {
+  pendingActionId = id;
+  const inv = invites.find(i => i.id === id);
+  document.getElementById('deleteModalText').innerHTML =
+    `Permanently remove the pending invite for <strong>${inv.email}</strong>? This cannot be undone.`;
+  document.getElementById('deleteModal').classList.add('visible');
+}
+function confirmDelete() {
+  invites = invites.filter(i => i.id !== pendingActionId);
+  selectedIds.delete(pendingActionId);
+  closeModal('deleteModal');
+  applyFilters();
+  updateBulkBar();
+  showToast('🗑', 'Invite deleted');
+}
+
+/* ─── Invite New ────────────────────────────────────────────────────── */
+function openInviteModal() {
+  document.getElementById('inviteEmail').value = '';
+  document.getElementById('inviteModal').classList.add('visible');
+}
+function addInvite() {
+  const email = document.getElementById('inviteEmail').value.trim();
+  if (!email || !email.includes('@')) { showToast('❌', 'Enter a valid email address'); return; }
+  if (invites.some(i => i.email.toLowerCase() === email.toLowerCase())) {
+    showToast('⚠️', 'This email already has a pending invite'); return;
+  }
+  const colors = ['#7c3aed','#0ea5e9','#10b981','#f97316','#ec4899','#6366f1'];
+  invites.push({
+    id: Date.now(), email, name: null,
+    lastInvited: new Date(), reinviteCount: 0,
+    avatarColor: colors[Math.floor(Math.random() * colors.length)]
+  });
+  closeModal('inviteModal');
+  applyFilters();
+  showToast('✅', `Invite sent to ${email}`);
+}
+
+/* ─── Bulk Actions ──────────────────────────────────────────────────── */
+function bulkReinvite() {
+  let count = 0;
+  selectedIds.forEach(id => {
+    const inv = invites.find(i => i.id === id);
+    if (inv && inv.reinviteCount < MAX_REINVITES && daysUntilExpiry(inv.lastInvited) > 0) {
+      inv.reinviteCount++;
+      inv.lastInvited = new Date();
+      count++;
+    }
+  });
+  clearSelection();
+  showToast('✅', `Re-invite sent to ${count} user${count!==1?'s':''}`);
+}
+function bulkDelete() {
+  const n = selectedIds.size;
+  invites = invites.filter(i => !selectedIds.has(i.id));
+  clearSelection();
+  showToast('🗑', `${n} invite${n!==1?'s':''} deleted`);
+}
+
+/* ─── Export ────────────────────────────────────────────────────────── */
+function exportCSV() {
+  const headers = ['Email','Type','Last Invited','Expires In (days)','Reinvites Used'];
+  const rows = invites.map(i => [
+    i.email,
+    isExternal(i.email) ? 'External' : 'Internal',
+    formatDate(i.lastInvited),
+    daysUntilExpiry(i.lastInvited),
+    `${i.reinviteCount}/${MAX_REINVITES}`
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+  downloadFile('pending-invites.csv', 'text/csv', csv);
+  showToast('⬇', 'CSV exported');
+}
+function exportJSON() {
+  const data = invites.map(i => ({
+    email: i.email,
+    type: isExternal(i.email) ? 'external' : 'internal',
+    lastInvited: i.lastInvited.toISOString(),
+    expiresInDays: daysUntilExpiry(i.lastInvited),
+    reinvitesUsed: i.reinviteCount,
+    reinviteLimit: MAX_REINVITES,
+    limitReached: i.reinviteCount >= MAX_REINVITES
+  }));
+  downloadFile('pending-invites.json', 'application/json', JSON.stringify(data, null, 2));
+  showToast('⬇', 'JSON exported');
+}
+function downloadFile(name, type, content) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], {type}));
+  a.download = name; a.click();
+}
+
+/* ─── Modal / Toast Helpers ─────────────────────────────────────────── */
+function closeModal(id) {
+  document.getElementById(id).classList.remove('visible');
+  pendingActionId = null;
+}
+document.querySelectorAll('.modal-overlay').forEach(el =>
+  el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); })
+);
+
+let toastTimer;
+function showToast(icon, msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toastIcon').textContent = icon;
+  document.getElementById('toastMsg').textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function switchTab(tab, e) { e.preventDefault(); }
+
+/* ─── Init ──────────────────────────────────────────────────────────── */
+applyFilters();
+</script>
+</body>
+</html>
