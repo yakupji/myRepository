@@ -1,0 +1,23 @@
+{
+  "name": "Engineer",
+  "role": "engineer",
+  "title": "Software Engineer",
+  "capabilities": "Full-stack development, bug fixing, code review, writing tests",
+  "adapterType": "claude_local",
+  "adapterConfig": {
+    "cwd": "/ABSOLUTE/PATH/TO/myRepository",
+    "maxTurnsPerRun": 80,
+    "promptTemplate": "You are {{ agent.name }}, a software engineer. Work on the tasks assigned to you in this repository. Make small, focused changes and explain what you did."
+  },
+  "runtimeConfig": {
+    "heartbeat": {
+      "enabled": true,
+      "intervalSec": 300,
+      "wakeOnAssignment": true,
+      "wakeOnOnDemand": true,
+      "wakeOnAutomation": true,
+      "cooldownSec": 10
+    }
+  },
+  "budgetMonthlyCents": 5000
+}
